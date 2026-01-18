@@ -55,3 +55,11 @@ export default {
 <GetAppleID />
 ```
 <GetAppleID />
+<GetAppleID 0/>
+
+<GetAppleID 1/>
+<GetAppleID 2/>
+<GetAppleID0/>
+
+<GetAppleID1/>
+<GetAppleID2/>
