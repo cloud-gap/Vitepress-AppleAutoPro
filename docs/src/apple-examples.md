@@ -60,11 +60,3 @@ b
 <GetAppleID 0/>
 c
 <GetAppleID 1/>
-d
-<GetAppleID 2/>
-e
-<GetAppleID0/>
-f
-<GetAppleID1/>
-g
-<GetAppleID2/>
