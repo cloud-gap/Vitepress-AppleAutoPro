@@ -15,8 +15,16 @@
             <span class="mask" :class="{ reveal: revealed[accKey(acc, i)]?.user }">
               {{ revealed[accKey(acc, i)]?.user ? acc.username : '••••••••••••••••' }}
             </span>
-            <button @click="copyToClipboard(acc.username)">复制账号</button>
-            <button @click="toggleReveal(accKey(acc, i), 'user')">
+
+            <button
+              class="btn"
+              :disabled="copied[`u-${accKey(acc, i)}`]"
+              @click="copyToClipboard(acc.username, `u-${accKey(acc, i)}`)"
+            >
+              {{ copied[`u-${accKey(acc, i)}`] ? '已复制' : '复制账号' }}
+            </button>
+
+            <button class="btn" @click="toggleReveal(accKey(acc, i), 'user')">
               {{ revealed[accKey(acc, i)]?.user ? '隐藏' : '显示' }}
             </button>
           </p>
@@ -26,8 +34,16 @@
             <span class="mask" :class="{ reveal: revealed[accKey(acc, i)]?.pass }">
               {{ revealed[accKey(acc, i)]?.pass ? acc.password : '••••••••••••••••' }}
             </span>
-            <button @click="copyToClipboard(acc.password)">复制密码</button>
-            <button @click="toggleReveal(accKey(acc, i), 'pass')">
+
+            <button
+              class="btn"
+              :disabled="copied[`p-${accKey(acc, i)}`]"
+              @click="copyToClipboard(acc.password, `p-${accKey(acc, i)}`)"
+            >
+              {{ copied[`p-${accKey(acc, i)}`] ? '已复制' : '复制密码' }}
+            </button>
+
+            <button class="btn" @click="toggleReveal(accKey(acc, i), 'pass')">
               {{ revealed[accKey(acc, i)]?.pass ? '隐藏' : '显示' }}
             </button>
           </p>
@@ -45,8 +61,16 @@
           <span class="mask" :class="{ reveal: revealed.single?.user }">
             {{ revealed.single?.user ? current?.username : '••••••••••••••••' }}
           </span>
-          <button @click="copyToClipboard(current?.username)">复制账号</button>
-          <button @click="toggleReveal('single', 'user')">
+
+          <button
+            class="btn"
+            :disabled="copied['u-single']"
+            @click="copyToClipboard(current?.username, 'u-single')"
+          >
+            {{ copied['u-single'] ? '已复制' : '复制账号' }}
+          </button>
+
+          <button class="btn" @click="toggleReveal('single', 'user')">
             {{ revealed.single?.user ? '隐藏' : '显示' }}
           </button>
         </p>
@@ -56,8 +80,16 @@
           <span class="mask" :class="{ reveal: revealed.single?.pass }">
             {{ revealed.single?.pass ? current?.password : '••••••••••••••••' }}
           </span>
-          <button @click="copyToClipboard(current?.password)">复制密码</button>
-          <button @click="toggleReveal('single', 'pass')">
+
+          <button
+            class="btn"
+            :disabled="copied['p-single']"
+            @click="copyToClipboard(current?.password, 'p-single')"
+          >
+            {{ copied['p-single'] ? '已复制' : '复制密码' }}
+          </button>
+
+          <button class="btn" @click="toggleReveal('single', 'pass')">
             {{ revealed.single?.pass ? '隐藏' : '显示' }}
           </button>
         </p>
@@ -104,6 +136,24 @@ function toggleReveal(key, field) {
   revealed[key][field] = !revealed[key][field]
 }
 
+/* 复制状态：复制后按钮显示“已复制”，1.5s 后恢复 */
+const copied = reactive({})
+
+function markCopied(key) {
+  copied[key] = true
+  setTimeout(() => {
+    copied[key] = false
+  }, 1500)
+}
+
+function copyToClipboard(text, key) {
+  if (!text) return
+  navigator.clipboard
+    .writeText(text)
+    .then(() => markCopied(key))
+    .catch((err) => console.error('复制失败:', err))
+}
+
 const parsedIndex = computed(() => {
   const n = Number(props.index)
   return Number.isFinite(n) ? n : 0
@@ -139,14 +189,6 @@ async function fetchData() {
   }
 }
 
-function copyToClipboard(text) {
-  if (!text) return
-  navigator.clipboard
-    .writeText(text)
-    .then(() => alert('复制成功'))
-    .catch((err) => console.error('复制失败:', err))
-}
-
 onMounted(fetchData)
 </script>
 
@@ -164,5 +206,19 @@ onMounted(fetchData)
 }
 .mask.reveal {
   color: #fff;
+}
+
+.btn {
+  margin-right: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
