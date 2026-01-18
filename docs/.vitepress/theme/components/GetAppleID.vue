@@ -7,7 +7,7 @@
       <div v-if="showAll">
         <div
           v-for="(acc, i) in accounts"
-          :key="acc?.id ?? acc?.username ?? i"
+          :key="acc?.id ?? i"
           style="padding: 12px 0; border-bottom: 1px solid #eee;"
         >
           <p>
@@ -97,10 +97,6 @@
         <p>账号状态: {{ current?.message }}</p>
         <p>上次检查: {{ current?.last_check }}</p>
         <p>账号地区: {{ current?.region_display }}</p>
-
-        <p v-if="!current" style="margin-top: 10px;">
-          未找到第 {{ parsedIndex }} 个账号（accounts={{ accounts.length }}）
-        </p>
       </div>
     </div>
 
@@ -132,8 +128,7 @@ const errorMsg = ref('')
 const revealed = reactive({})
 
 function accKey(acc, i) {
-  // 优先用 username 做 key（防止 acc.id 缺失/重复导致状态错乱）
-  return (acc && acc.username) ? String(acc.username) : (acc && acc.id != null ? String(acc.id) : String(i))
+  return acc && acc.id != null ? String(acc.id) : String(i)
 }
 
 function toggleReveal(key, field) {
@@ -170,18 +165,6 @@ const current = computed(() => {
   return Array.isArray(accounts.value) ? accounts.value[parsedIndex.value] : null
 })
 
-function dedupeAccounts(list) {
-  // ✅ 按 username 去重（你现在出现 1 和 3 一样，基本就是这里能修掉）
-  const seen = new Set()
-  return list.filter((a) => {
-    const key = a?.username
-    if (!key) return false
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
 async function fetchData() {
   dataLoaded.value = false
   errorMsg.value = ''
@@ -192,9 +175,12 @@ async function fetchData() {
     const data = await response.json()
 
     msg.value = data?.msg ?? ''
+    accounts.value = Array.isArray(data?.accounts) ? data.accounts : []
 
-    const list = Array.isArray(data?.accounts) ? data.accounts : []
-    accounts.value = dedupeAccounts(list)
+    if (!showAll.value && !current.value) {
+      errorMsg.value = `未找到第 ${parsedIndex.value} 个账号（accounts=${accounts.value.length}）`
+      return
+    }
 
     dataLoaded.value = true
   } catch (e) {
