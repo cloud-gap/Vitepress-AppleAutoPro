@@ -57,8 +57,9 @@ export default {
 a
 <GetAppleID />
 b
-<GetAppleID 0/>
+<GetAppleID :index="1" />
+
 c
-<GetAppleID 1/>
-d
-<GetAppleID 2/>
+<GetAppleID :index="2" />
+
+
