@@ -1,6 +1,6 @@
 <template>
   <div :key="route.fullPath" class="wrap">
-    <!-- 顶部警告条 -->
+    <!-- 顶部红色提醒条 -->
     <div class="alert" role="alert">
       <div class="alertIcon">⚠️</div>
       <div class="alertText">
@@ -9,6 +9,7 @@
           请 <b>只登录 App Store</b> 下载应用，<b>不要登录 iCloud</b>，避免触发安全验证/锁定。
         </div>
       </div>
+
       <button class="btn btn-ghost alertBtn" @click="fetchData" :disabled="loading">
         {{ loading ? '刷新中…' : '刷新' }}
       </button>
@@ -28,7 +29,7 @@
         </div>
       </div>
 
-      <!-- 全部账号：卡片网格 -->
+      <!-- 显示全部账号 -->
       <div v-if="showAll" class="grid">
         <div v-for="(acc, i) in accounts" :key="acc?.id ?? i" class="card">
           <div class="cardTop">
@@ -38,9 +39,7 @@
                 <span class="pill" :class="acc?.status ? 'pill-ok' : 'pill-bad'">
                   {{ acc?.status ? '可用' : '不可用' }}
                 </span>
-                <span class="pill pill-soft">
-                  {{ acc?.region_display || '未知地区' }}
-                </span>
+                <span class="pill pill-soft">{{ acc?.region_display || '未知地区' }}</span>
               </div>
             </div>
 
@@ -63,13 +62,9 @@
               <button
                 class="btn btn-primary"
                 :disabled="copied[`u-${accKey(acc, i)}`]"
-                @click="copyToClipboard(acc.username, `u-${accKey(acc, i)}`)"
+                @click="revealAndCopy(acc.username, accKey(acc, i), 'user', `u-${accKey(acc, i)}`)"
               >
-                {{ copied[`u-${accKey(acc, i)}`] ? '已复制' : '复制账号' }}
-              </button>
-
-              <button class="btn btn-ghost" @click="toggleReveal(accKey(acc, i), 'user')">
-                {{ revealed[accKey(acc, i)]?.user ? '隐藏' : '显示' }}
+                {{ copied[`u-${accKey(acc, i)}`] ? '已复制' : '显示并复制' }}
               </button>
             </div>
           </div>
@@ -88,13 +83,9 @@
               <button
                 class="btn btn-primary"
                 :disabled="copied[`p-${accKey(acc, i)}`]"
-                @click="copyToClipboard(acc.password, `p-${accKey(acc, i)}`)"
+                @click="revealAndCopy(acc.password, accKey(acc, i), 'pass', `p-${accKey(acc, i)}`)"
               >
-                {{ copied[`p-${accKey(acc, i)}`] ? '已复制' : '复制密码' }}
-              </button>
-
-              <button class="btn btn-ghost" @click="toggleReveal(accKey(acc, i), 'pass')">
-                {{ revealed[accKey(acc, i)]?.pass ? '隐藏' : '显示' }}
+                {{ copied[`p-${accKey(acc, i)}`] ? '已复制' : '显示并复制' }}
               </button>
             </div>
           </div>
@@ -114,7 +105,7 @@
         </div>
       </div>
 
-      <!-- 单个账号：一张卡 -->
+      <!-- 单个账号 -->
       <div v-else>
         <div class="card">
           <div class="cardTop">
@@ -127,6 +118,7 @@
                 <span class="pill pill-soft">{{ current?.region_display || '未知地区' }}</span>
               </div>
             </div>
+
             <div class="right">
               <div class="hint">只登录 App Store，不要登录 iCloud</div>
             </div>
@@ -143,12 +135,9 @@
               <button
                 class="btn btn-primary"
                 :disabled="copied['u-single']"
-                @click="copyToClipboard(current?.username, 'u-single')"
+                @click="revealAndCopy(current?.username, 'single', 'user', 'u-single')"
               >
-                {{ copied['u-single'] ? '已复制' : '复制账号' }}
-              </button>
-              <button class="btn btn-ghost" @click="toggleReveal('single', 'user')">
-                {{ revealed.single?.user ? '隐藏' : '显示' }}
+                {{ copied['u-single'] ? '已复制' : '显示并复制' }}
               </button>
             </div>
           </div>
@@ -164,12 +153,9 @@
               <button
                 class="btn btn-primary"
                 :disabled="copied['p-single']"
-                @click="copyToClipboard(current?.password, 'p-single')"
+                @click="revealAndCopy(current?.password, 'single', 'pass', 'p-single')"
               >
-                {{ copied['p-single'] ? '已复制' : '复制密码' }}
-              </button>
-              <button class="btn btn-ghost" @click="toggleReveal('single', 'pass')">
-                {{ revealed.single?.pass ? '隐藏' : '显示' }}
+                {{ copied['p-single'] ? '已复制' : '显示并复制' }}
               </button>
             </div>
           </div>
@@ -189,9 +175,7 @@
         </div>
       </div>
 
-      <div v-if="accounts?.length === 0" class="empty">
-        暂无账号数据
-      </div>
+      <div v-if="accounts?.length === 0" class="empty">暂无账号数据</div>
     </div>
 
     <div v-else class="loadingBox">
@@ -219,20 +203,16 @@ const msg = ref('')
 const accounts = ref([])
 const errorMsg = ref('')
 
-/* 显示/隐藏状态 */
 const revealed = reactive({})
+const copied = reactive({})
 
 function accKey(acc, i) {
   return acc && acc.id != null ? String(acc.id) : String(i)
 }
 
-function toggleReveal(key, field) {
+function ensureRevealState(key) {
   if (!revealed[key]) revealed[key] = { user: false, pass: false }
-  revealed[key][field] = !revealed[key][field]
 }
-
-/* 复制状态：复制后按钮显示“已复制”，1.5s 后恢复 */
-const copied = reactive({})
 
 function markCopied(key) {
   copied[key] = true
@@ -241,12 +221,25 @@ function markCopied(key) {
   }, 1500)
 }
 
-function copyToClipboard(text, key) {
+function copy(text, copiedKey) {
   if (!text) return
   navigator.clipboard
     .writeText(text)
-    .then(() => markCopied(key))
+    .then(() => markCopied(copiedKey))
     .catch((err) => console.error('复制失败:', err))
+}
+
+/**
+ * 点击一个按钮 = 自动显示 + 自动复制
+ * @param {string} text 要复制的内容
+ * @param {string} revealKey revealed 对象 key（single 或账号 id）
+ * @param {'user'|'pass'} field 显示的字段
+ * @param {string} copiedKey copied 对象 key
+ */
+function revealAndCopy(text, revealKey, field, copiedKey) {
+  ensureRevealState(revealKey)
+  revealed[revealKey][field] = true // 自动显示
+  copy(text, copiedKey) // 自动复制
 }
 
 const parsedIndex = computed(() => {
@@ -291,54 +284,14 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-/* =========================
-   主题色：更偏 iOS 风
-   - Light：白底+柔和边框
-   - Dark：接近 iOS 深色（黑灰、清晰边界）
-========================= */
-
+/* VitePress 变量：夜间/白天自动适配 */
 .wrap {
   margin: 12px 0;
   font-size: 14px;
   line-height: 1.6;
+  color: var(--vp-c-text-1);
 }
 
-/* 顶部警告条 */
-.alert {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  background: rgba(239, 68, 68, 0.08);
-  margin-bottom: 12px;
-}
-:global(.dark) .alert {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.12);
-}
-
-.alertIcon {
-  font-size: 18px;
-  line-height: 1;
-}
-.alertText {
-  flex: 1;
-  min-width: 0;
-}
-.alertTitle {
-  font-weight: 800;
-}
-.alertDesc {
-  font-size: 12px;
-  opacity: 0.9;
-}
-.alertBtn {
-  white-space: nowrap;
-}
-
-/* header */
 .header {
   display: flex;
   align-items: flex-end;
@@ -346,15 +299,18 @@ onMounted(fetchData)
   gap: 12px;
   margin: 8px 0 12px;
 }
+
 .h1 {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 900;
 }
+
 .sub {
   margin-top: 4px;
   font-size: 12px;
-  opacity: 0.75;
+  color: var(--vp-c-text-2);
 }
+
 .actions {
   display: flex;
   gap: 8px;
@@ -366,23 +322,49 @@ onMounted(fetchData)
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
-/* 卡片（Light） */
-.card {
-  border: 1px solid rgba(15, 23, 42, 0.10);
+/* 顶部红色提醒条 */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
   border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-danger-1) 35%, transparent);
+  background: color-mix(in srgb, var(--vp-c-danger-1) 14%, transparent);
+}
+
+.alertIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.alertText {
+  flex: 1;
+  min-width: 0;
+}
+
+.alertTitle {
+  font-weight: 900;
+}
+
+.alertDesc {
+  font-size: 12px;
+  color: var(--vp-c-text-2);
+}
+
+.alertBtn {
+  white-space: nowrap;
+}
+
+/* 卡片 */
+.card {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 18px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  background: var(--vp-c-bg-elv);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.10);
 }
 
-/* 卡片（Dark：iOS-ish） */
-:global(.dark) .card {
-  background: #0b0f14;                 /* 更接近 iOS 深色 */
-  border-color: rgba(148, 163, 184, 0.20);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-}
-
-/* 顶部信息 */
 .cardTop {
   display: flex;
   align-items: flex-start;
@@ -390,46 +372,50 @@ onMounted(fetchData)
   gap: 10px;
   margin-bottom: 10px;
 }
+
 .cardTitle {
-  font-weight: 800;
+  font-weight: 900;
   font-size: 15px;
 }
+
 .meta {
   margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .hint {
   font-size: 12px;
-  opacity: 0.8;
+  color: var(--vp-c-text-2);
 }
 
-/* pills */
 .pill {
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.55);
-}
-:global(.dark) .pill {
-  border-color: rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.06);
-}
-.pill-ok {
-  border-color: rgba(34, 197, 94, 0.35);
-}
-.pill-bad {
-  border-color: rgba(239, 68, 68, 0.35);
-}
-.pill-soft {
-  opacity: 0.85;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
 }
 
-/* 行布局（桌面） */
+.pill-ok {
+  border-color: color-mix(in srgb, var(--vp-c-green-1) 40%, var(--vp-c-divider));
+  color: var(--vp-c-text-1);
+}
+
+.pill-bad {
+  border-color: color-mix(in srgb, var(--vp-c-danger-1) 45%, var(--vp-c-divider));
+  color: var(--vp-c-text-1);
+}
+
+.pill-soft {
+  opacity: 0.9;
+}
+
+/* 行布局 */
 .row {
   display: grid;
   grid-template-columns: 82px 1fr auto;
@@ -437,14 +423,17 @@ onMounted(fetchData)
   align-items: center;
   padding: 10px 0;
 }
+
 .label {
   font-size: 12px;
-  opacity: 0.78;
+  color: var(--vp-c-text-2);
 }
+
 .value {
   min-width: 0;
   overflow: hidden;
 }
+
 .ops {
   display: flex;
   gap: 8px;
@@ -455,7 +444,7 @@ onMounted(fetchData)
 /* 分隔线 */
 .divider {
   height: 1px;
-  background: rgba(148, 163, 184, 0.18);
+  background: var(--vp-c-divider);
   margin: 10px 0;
 }
 
@@ -465,24 +454,28 @@ onMounted(fetchData)
   gap: 10px;
   grid-template-columns: 1fr 1fr;
 }
+
 .kvItem .k {
   font-size: 12px;
-  opacity: 0.75;
+  color: var(--vp-c-text-2);
 }
+
 .kvItem .v {
   margin-top: 2px;
   font-weight: 650;
+  color: var(--vp-c-text-1);
   word-break: break-word;
 }
 
-/* 遮罩（Light） */
+/* 遮罩 */
 .mask {
   display: inline-block;
   width: 100%;
   max-width: 420px;
   padding: 7px 10px;
-  border-radius: 12px;
-  background: #111;
+  border-radius: 14px;
+  background: var(--vp-c-bg-mute);
+  border: 1px solid var(--vp-c-divider);
   color: transparent;
   user-select: none;
   vertical-align: middle;
@@ -490,93 +483,83 @@ onMounted(fetchData)
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .mask.reveal {
-  color: #fff;
+  color: var(--vp-c-text-1);
 }
 
-/* 遮罩（Dark：避免黑上加黑） */
-:global(.dark) .mask {
-  background: #1f2937;
-  color: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-}
-:global(.dark) .mask.reveal {
-  color: #f8fafc;
-}
-
-/* 按钮（iOS-ish） */
+/* 按钮 */
 .btn {
   padding: 7px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  background: rgba(255, 255, 255, 0.75);
+  border-radius: 14px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
   cursor: pointer;
-  transition: transform 0.06s ease, opacity 0.15s ease, background 0.15s ease;
+  transition: background 0.15s ease, transform 0.06s ease, opacity 0.15s ease;
   font-size: 13px;
 }
+
+.btn:hover {
+  background: var(--vp-c-bg);
+}
+
 .btn:active {
   transform: translateY(1px);
 }
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* Dark buttons */
-:global(.dark) .btn {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(148, 163, 184, 0.20);
-  color: #e5e7eb;
-}
-:global(.dark) .btn:hover {
-  background: rgba(255, 255, 255, 0.10);
-}
-
-/* primary */
 .btn-primary {
-  border-color: rgba(59, 130, 246, 0.35);
-}
-:global(.dark) .btn-primary {
-  border-color: rgba(59, 130, 246, 0.45);
+  border-color: color-mix(in srgb, var(--vp-c-brand-1) 55%, var(--vp-c-divider));
+  background: color-mix(in srgb, var(--vp-c-brand-1) 22%, var(--vp-c-bg-soft));
 }
 
-/* ghost */
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--vp-c-brand-1) 28%, var(--vp-c-bg-soft));
+}
+
 .btn-ghost {
-  opacity: 0.92;
+  opacity: 0.95;
 }
 
-/* Loading/Empty */
 .loadingBox {
   padding: 14px;
-  border-radius: 16px;
-  border: 1px dashed rgba(148, 163, 184, 0.26);
+  border-radius: 18px;
+  border: 1px dashed var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
 }
+
 .err {
-  color: #ef4444;
-  font-weight: 700;
+  color: var(--vp-c-danger-1);
+  font-weight: 800;
 }
+
 .muted {
-  opacity: 0.7;
+  color: var(--vp-c-text-2);
 }
+
 .empty {
   margin-top: 12px;
-  opacity: 0.7;
+  color: var(--vp-c-text-2);
   text-align: center;
 }
 
-/* =========================
-   📱 手机端优化
-   - 行改为两行：label+value / buttons 换行
-========================= */
+/* 📱 手机端优化 */
 @media (max-width: 520px) {
   .header {
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
   }
+
   .actions {
     width: 100%;
   }
+
   .actions .btn {
     width: 100%;
   }
@@ -584,29 +567,26 @@ onMounted(fetchData)
   .alert {
     align-items: flex-start;
   }
+
   .alertBtn {
-    display: none; /* 手机上隐藏警告条右侧刷新按钮，避免挤压 */
+    display: none;
   }
 
   .row {
     grid-template-columns: 1fr;
     gap: 8px;
   }
-  .label {
-    opacity: 0.9;
-  }
+
   .ops {
     justify-content: flex-start;
-  }
-  .btn {
-    width: auto;
-  }
-  .mask {
-    max-width: 100%;
   }
 
   .kv {
     grid-template-columns: 1fr;
+  }
+
+  .mask {
+    max-width: 100%;
   }
 }
 </style>
